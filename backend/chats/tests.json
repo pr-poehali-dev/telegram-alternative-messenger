@@ -1,0 +1,25 @@
+{
+  "tests": [
+    {
+      "name": "OPTIONS preflight",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get chats without token",
+      "method": "GET",
+      "path": "/?action=chats",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Get contacts without token",
+      "method": "GET",
+      "path": "/?action=contacts",
+      "expectedStatus": 401,
+      "bodyMatcher": "partial"
+    }
+  ]
+}
