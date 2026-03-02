@@ -1463,10 +1463,6 @@ export default function Index() {
     if (user && section === "calls") loadCallHistory();
   }, [user, section, loadCallHistory]);
 
-  useEffect(() => {
-    if (user && section === "channels") loadChannels(channelTab as "all" | "my");
-  }, [user, section, channelTab, loadChannels]);
-
   const logout = async () => {
     await apiFetch(AUTH_URL, { method: "POST", body: JSON.stringify({ action: "logout" }) });
     localStorage.removeItem("wc_token");
@@ -1508,6 +1504,10 @@ export default function Index() {
     if (ok) setChannels(data.channels || []);
     setChannelsLoading(false);
   }, []);
+
+  useEffect(() => {
+    if (user && section === "channels") loadChannels(channelTab as "all" | "my");
+  }, [user, section, channelTab, loadChannels]);
 
   const searchChannels = useCallback(async (q: string) => {
     if (!q.trim() || !CHANNELS_URL) { setChannelSearchResults([]); return; }
