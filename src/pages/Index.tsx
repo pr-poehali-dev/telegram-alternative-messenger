@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
 import func2url from "../../backend/func2url.json";
 
