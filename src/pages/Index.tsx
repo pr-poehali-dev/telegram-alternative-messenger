@@ -115,6 +115,142 @@ const DEFAULT_SETTINGS: AppSettings = {
   language: "ru", region: "RU", fontSize: "md",
 };
 
+// ─── i18n ──────────────────────────────────────────────────────────────────────
+const I18N: Record<string, Record<string, string>> = {
+  ru: {
+    chats: "Чаты", channels: "Каналы", bots: "Боты", calls: "Звонки",
+    contacts: "Контакты", settings: "Настройки", profile: "Профиль",
+    search_chats: "Поиск чатов...", search_people: "Поиск по имени или @username...",
+    people: "Люди", no_chats: "Нет чатов. Перейдите в «Контакты».",
+    find_people: "Найти собеседника", online: "Онлайн", offline: "Не в сети",
+    type_message: "Сообщение...", send: "Отправить", logout: "Выйти из аккаунта",
+    name: "Имя", username: "Логин", encryption: "Шифрование",
+    appearance: "Оформление", notifications_tab: "Уведомления",
+    devices: "Устройства", language: "Язык",
+    edit_profile: "Редактировать профиль", save: "Сохранить", cancel: "Отмена",
+    display_name: "Отображаемое имя", username_hint: "a-z, 0-9 и _ (3–32 символа)",
+    profile_saved: "Профиль сохранён!", no_messages: "Нет сообщений",
+    deleted_msg: "Сообщение удалено", typing: "печатает...",
+    call_history_empty: "История звонков пуста",
+  },
+  en: {
+    chats: "Chats", channels: "Channels", bots: "Bots", calls: "Calls",
+    contacts: "Contacts", settings: "Settings", profile: "Profile",
+    search_chats: "Search chats...", search_people: "Search by name or @username...",
+    people: "People", no_chats: "No chats. Go to Contacts.",
+    find_people: "Find someone", online: "Online", offline: "Offline",
+    type_message: "Message...", send: "Send", logout: "Log out",
+    name: "Name", username: "Username", encryption: "Encryption",
+    appearance: "Appearance", notifications_tab: "Notifications",
+    devices: "Devices", language: "Language",
+    edit_profile: "Edit profile", save: "Save", cancel: "Cancel",
+    display_name: "Display name", username_hint: "a-z, 0-9 and _ (3–32 chars)",
+    profile_saved: "Profile saved!", no_messages: "No messages",
+    deleted_msg: "Message deleted", typing: "typing...",
+    call_history_empty: "No call history",
+  },
+  de: {
+    chats: "Chats", channels: "Kanäle", bots: "Bots", calls: "Anrufe",
+    contacts: "Kontakte", settings: "Einstellungen", profile: "Profil",
+    search_chats: "Chats suchen...", search_people: "Nach Name oder @username suchen...",
+    people: "Personen", no_chats: "Keine Chats. Gehe zu Kontakte.",
+    find_people: "Jemanden finden", online: "Online", offline: "Offline",
+    type_message: "Nachricht...", send: "Senden", logout: "Abmelden",
+    name: "Name", username: "Benutzername", encryption: "Verschlüsselung",
+    appearance: "Darstellung", notifications_tab: "Benachrichtigungen",
+    devices: "Geräte", language: "Sprache",
+    edit_profile: "Profil bearbeiten", save: "Speichern", cancel: "Abbrechen",
+    display_name: "Anzeigename", username_hint: "a-z, 0-9 und _ (3–32 Zeichen)",
+    profile_saved: "Profil gespeichert!", no_messages: "Keine Nachrichten",
+    deleted_msg: "Nachricht gelöscht", typing: "tippt...",
+    call_history_empty: "Keine Anrufhistorie",
+  },
+  fr: {
+    chats: "Chats", channels: "Chaînes", bots: "Bots", calls: "Appels",
+    contacts: "Contacts", settings: "Paramètres", profile: "Profil",
+    search_chats: "Rechercher des chats...", search_people: "Rechercher par nom ou @username...",
+    people: "Personnes", no_chats: "Aucun chat. Allez aux Contacts.",
+    find_people: "Trouver quelqu'un", online: "En ligne", offline: "Hors ligne",
+    type_message: "Message...", send: "Envoyer", logout: "Se déconnecter",
+    name: "Nom", username: "Identifiant", encryption: "Chiffrement",
+    appearance: "Apparence", notifications_tab: "Notifications",
+    devices: "Appareils", language: "Langue",
+    edit_profile: "Modifier le profil", save: "Enregistrer", cancel: "Annuler",
+    display_name: "Nom d'affichage", username_hint: "a-z, 0-9 et _ (3–32 car.)",
+    profile_saved: "Profil enregistré!", no_messages: "Aucun message",
+    deleted_msg: "Message supprimé", typing: "écrit...",
+    call_history_empty: "Aucun historique d'appels",
+  },
+  es: {
+    chats: "Chats", channels: "Canales", bots: "Bots", calls: "Llamadas",
+    contacts: "Contactos", settings: "Ajustes", profile: "Perfil",
+    search_chats: "Buscar chats...", search_people: "Buscar por nombre o @usuario...",
+    people: "Personas", no_chats: "Sin chats. Ve a Contactos.",
+    find_people: "Encontrar alguien", online: "En línea", offline: "Desconectado",
+    type_message: "Mensaje...", send: "Enviar", logout: "Cerrar sesión",
+    name: "Nombre", username: "Usuario", encryption: "Cifrado",
+    appearance: "Apariencia", notifications_tab: "Notificaciones",
+    devices: "Dispositivos", language: "Idioma",
+    edit_profile: "Editar perfil", save: "Guardar", cancel: "Cancelar",
+    display_name: "Nombre visible", username_hint: "a-z, 0-9 y _ (3–32 chars)",
+    profile_saved: "¡Perfil guardado!", no_messages: "Sin mensajes",
+    deleted_msg: "Mensaje eliminado", typing: "escribiendo...",
+    call_history_empty: "Sin historial de llamadas",
+  },
+  tr: {
+    chats: "Sohbetler", channels: "Kanallar", bots: "Botlar", calls: "Aramalar",
+    contacts: "Kişiler", settings: "Ayarlar", profile: "Profil",
+    search_chats: "Sohbet ara...", search_people: "İsim veya @kullanıcı ara...",
+    people: "Kişiler", no_chats: "Sohbet yok. Kişiler'e gidin.",
+    find_people: "Birini bul", online: "Çevrimiçi", offline: "Çevrimdışı",
+    type_message: "Mesaj...", send: "Gönder", logout: "Çıkış yap",
+    name: "Ad", username: "Kullanıcı adı", encryption: "Şifreleme",
+    appearance: "Görünüm", notifications_tab: "Bildirimler",
+    devices: "Cihazlar", language: "Dil",
+    edit_profile: "Profili düzenle", save: "Kaydet", cancel: "İptal",
+    display_name: "Görünen ad", username_hint: "a-z, 0-9 ve _ (3–32 karakter)",
+    profile_saved: "Profil kaydedildi!", no_messages: "Mesaj yok",
+    deleted_msg: "Mesaj silindi", typing: "yazıyor...",
+    call_history_empty: "Arama geçmişi boş",
+  },
+  kk: {
+    chats: "Чаттар", channels: "Арналар", bots: "Боттар", calls: "Қоңыраулар",
+    contacts: "Контактілер", settings: "Баптаулар", profile: "Профиль",
+    search_chats: "Чат іздеу...", search_people: "Есім немесе @username іздеу...",
+    people: "Адамдар", no_chats: "Чат жоқ. Контактілерге өтіңіз.",
+    find_people: "Адам табу", online: "Желіде", offline: "Желіде емес",
+    type_message: "Хабарлама...", send: "Жіберу", logout: "Шығу",
+    name: "Аты", username: "Логин", encryption: "Шифрлеу",
+    appearance: "Дизайн", notifications_tab: "Хабарландырулар",
+    devices: "Құрылғылар", language: "Тіл",
+    edit_profile: "Профильді өзгерту", save: "Сақтау", cancel: "Болдырмау",
+    display_name: "Аты-жөні", username_hint: "a-z, 0-9 және _ (3–32 таңба)",
+    profile_saved: "Профиль сақталды!", no_messages: "Хабарлама жоқ",
+    deleted_msg: "Хабарлама жойылды", typing: "жазуда...",
+    call_history_empty: "Қоңырау тарихы жоқ",
+  },
+  uk: {
+    chats: "Чати", channels: "Канали", bots: "Боти", calls: "Дзвінки",
+    contacts: "Контакти", settings: "Налаштування", profile: "Профіль",
+    search_chats: "Пошук чатів...", search_people: "Пошук за іменем або @username...",
+    people: "Люди", no_chats: "Немає чатів. Перейдіть до Контактів.",
+    find_people: "Знайти співрозмовника", online: "Онлайн", offline: "Не в мережі",
+    type_message: "Повідомлення...", send: "Надіслати", logout: "Вийти",
+    name: "Ім'я", username: "Логін", encryption: "Шифрування",
+    appearance: "Оформлення", notifications_tab: "Сповіщення",
+    devices: "Пристрої", language: "Мова",
+    edit_profile: "Редагувати профіль", save: "Зберегти", cancel: "Скасувати",
+    display_name: "Відображувана назва", username_hint: "a-z, 0-9 та _ (3–32 символи)",
+    profile_saved: "Профіль збережено!", no_messages: "Немає повідомлень",
+    deleted_msg: "Повідомлення видалено", typing: "пише...",
+    call_history_empty: "Історія дзвінків порожня",
+  },
+};
+function useT(lang: string) {
+  const dict = I18N[lang] || I18N["ru"];
+  return (key: string) => dict[key] || I18N["ru"][key] || key;
+}
+
 const LANGUAGES = [
   { code: "ru", label: "Русский", flag: "🇷🇺" },
   { code: "en", label: "English", flag: "🇬🇧" },
@@ -751,16 +887,32 @@ function CallScreen({ partner, callType, roomId, isCallee, onEnd }: {
 }
 
 // ─── Settings Screen ──────────────────────────────────────────────────────────
-function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarUpload, avatarUploading, avatarInputRef }: {
+function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarUpload, avatarUploading, avatarInputRef, onUpdateProfile }: {
   user: User; settings: AppSettings;
   onSettings: (s: AppSettings) => void;
   onLogout: () => void;
   onAvatarUpload: (f: File) => void;
   avatarUploading: boolean;
   avatarInputRef: React.RefObject<HTMLInputElement>;
+  onUpdateProfile: (display_name: string, username: string) => Promise<string | null>;
 }) {
   const [tab, setTab] = useState<"profile" | "appearance" | "notifications" | "devices" | "language">("profile");
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editName, setEditName] = useState(user.display_name);
+  const [editUsername, setEditUsername] = useState(user.username);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const t = useT(settings.language);
   const set = (p: Partial<AppSettings>) => onSettings({ ...settings, ...p });
+
+  const saveProfile = async () => {
+    setProfileSaving(true); setProfileError(""); setProfileSuccess(false);
+    const err = await onUpdateProfile(editName.trim(), editUsername.trim());
+    setProfileSaving(false);
+    if (err) { setProfileError(err); }
+    else { setProfileSuccess(true); setEditingProfile(false); setTimeout(() => setProfileSuccess(false), 3000); }
+  };
 
   const accentColors = [
     { value: "blue" as Accent, color: "#1d6cc8", label: "Синий" },
@@ -777,11 +929,11 @@ function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarUpload, 
     { value: "bubbles" as Wallpaper, label: "Пузыри", cls: "chat-bg-bubbles" },
   ];
   const tabs = [
-    { id: "profile", icon: "User", label: "Профиль" },
-    { id: "appearance", icon: "Palette", label: "Оформление" },
-    { id: "notifications", icon: "Bell", label: "Уведомления" },
-    { id: "devices", icon: "Monitor", label: "Устройства" },
-    { id: "language", icon: "Globe", label: "Язык" },
+    { id: "profile", icon: "User", label: t("profile") },
+    { id: "appearance", icon: "Palette", label: t("appearance") },
+    { id: "notifications", icon: "Bell", label: t("notifications_tab") },
+    { id: "devices", icon: "Monitor", label: t("devices") },
+    { id: "language", icon: "Globe", label: t("language") },
   ] as const;
   const devices: DeviceInfo[] = [
     { name: `${detectOS()} · ${detectBrowser()}`, os: detectOS(), browser: detectBrowser(), current: true },
@@ -817,29 +969,84 @@ function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarUpload, 
               </div>
               <div className="text-center">
                 <div className="font-semibold text-foreground">{user.display_name}</div>
-                <div className="text-sm text-muted-foreground">{formatPhone(user.username)}</div>
+                <div className="text-sm text-muted-foreground">@{user.username}</div>
               </div>
             </div>
-            <div className="bg-card rounded-2xl border border-border divide-y divide-border">
-              {[
-                { icon: "User", label: "Имя", value: user.display_name },
-                { icon: "Phone", label: "Телефон", value: formatPhone(user.username) },
-                { icon: "Shield", label: "Шифрование", value: "AES-512 E2E" },
-              ].map(row => (
-                <div key={row.label} className="flex items-center gap-3 px-4 py-3">
-                  <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Icon name={row.icon} size={15} className="text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted-foreground">{row.label}</div>
-                    <div className="text-sm font-medium truncate">{row.value}</div>
-                  </div>
+
+            {profileSuccess && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-green-500/10 text-green-600 text-sm">
+                <Icon name="CheckCircle" size={14} />{t("profile_saved")}
+              </div>
+            )}
+
+            {!editingProfile ? (
+              <>
+                <div className="bg-card rounded-2xl border border-border divide-y divide-border">
+                  {[
+                    { icon: "User", label: t("name"), value: user.display_name },
+                    { icon: "AtSign", label: t("username"), value: `@${user.username}` },
+                    { icon: "Shield", label: t("encryption"), value: "AES-512 E2E" },
+                  ].map(row => (
+                    <div key={row.label} className="flex items-center gap-3 px-4 py-3">
+                      <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                        <Icon name={row.icon} size={15} className="text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-xs text-muted-foreground">{row.label}</div>
+                        <div className="text-sm font-medium truncate">{row.value}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+                <button onClick={() => { setEditingProfile(true); setEditName(user.display_name); setEditUsername(user.username); setProfileError(""); }}
+                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary/10 hover:bg-primary/15 text-primary text-sm font-medium transition-colors">
+                  <Icon name="Pencil" size={15} />{t("edit_profile")}
+                </button>
+              </>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">{t("display_name")}</label>
+                  <input value={editName} onChange={e => setEditName(e.target.value)}
+                    maxLength={64}
+                    className="w-full px-3 py-2.5 text-sm rounded-xl bg-muted border-0 outline-none focus:ring-2 focus:ring-primary/30"
+                    placeholder={t("display_name")} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground">@{t("username")}</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm">@</span>
+                    <input value={editUsername} onChange={e => setEditUsername(e.target.value.replace(/[^a-zA-Z0-9_]/g, "").toLowerCase())}
+                      maxLength={32}
+                      className="w-full pl-7 pr-3 py-2.5 text-sm rounded-xl bg-muted border-0 outline-none focus:ring-2 focus:ring-primary/30"
+                      placeholder="username" />
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t("username_hint")}</p>
+                </div>
+                {profileError && (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-destructive/10 text-destructive text-xs">
+                    <Icon name="AlertCircle" size={13} />{profileError}
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <button onClick={() => { setEditingProfile(false); setProfileError(""); }}
+                    className="flex-1 py-2.5 rounded-xl border border-border text-sm text-muted-foreground hover:bg-muted transition-colors">
+                    {t("cancel")}
+                  </button>
+                  <button onClick={saveProfile} disabled={profileSaving || !editName.trim()}
+                    className="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
+                    {profileSaving
+                      ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      : <Icon name="Check" size={15} />}
+                    {t("save")}
+                  </button>
+                </div>
+              </div>
+            )}
+
             <button onClick={onLogout}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-destructive/10 hover:bg-destructive/15 text-destructive text-sm font-medium">
-              <Icon name="LogOut" size={16} />Выйти из аккаунта
+              <Icon name="LogOut" size={16} />{t("logout")}
             </button>
           </div>
         )}
@@ -1405,7 +1612,7 @@ export default function Index() {
     if (!user) return;
     setChatsLoading(true);
     loadChats().finally(() => setChatsLoading(false));
-    chatsPollRef.current = setInterval(loadChats, 5000);
+    chatsPollRef.current = setInterval(loadChats, 8000);
     return () => { if (chatsPollRef.current) clearInterval(chatsPollRef.current); };
   }, [user, loadChats]);
 
@@ -1506,10 +1713,21 @@ export default function Index() {
     if (user && section === "calls") loadCallHistory();
   }, [user, section, loadCallHistory]);
 
+  const t = useT(settings.language);
+
   const logout = async () => {
     await apiFetch(AUTH_URL, { method: "POST", body: JSON.stringify({ action: "logout" }) });
     localStorage.removeItem("wc_token");
     setUser(null); setChats([]); setContacts([]); setActiveChat(null); setMessages([]);
+  };
+
+  const updateProfile = async (display_name: string, username: string): Promise<string | null> => {
+    const { ok, data } = await apiFetch(AUTH_URL, {
+      method: "POST",
+      body: JSON.stringify({ action: "update_profile", display_name, username }),
+    });
+    if (ok) { setUser(data.user); return null; }
+    return data.error || "Ошибка сохранения";
   };
 
   const openChat = (chat: ChatItem) => {
@@ -1530,13 +1748,17 @@ export default function Index() {
     }
   };
 
-  const searchPeople = useCallback(async (query: string) => {
-    if (!query.trim()) { setPeopleResults([]); return; }
+  const searchPeopleRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchPeople = useCallback((query: string) => {
+    if (searchPeopleRef.current) clearTimeout(searchPeopleRef.current);
+    if (!query.trim()) { setPeopleResults([]); setPeopleLoading(false); return; }
     setPeopleLoading(true);
-    const { ok, data } = await apiFetch(`${CHATS_URL}?action=search_users&q=${encodeURIComponent(query.trim())}`);
-    if (ok) setPeopleResults(data.users || []);
-    else setPeopleResults([]);
-    setPeopleLoading(false);
+    searchPeopleRef.current = setTimeout(async () => {
+      const { ok, data } = await apiFetch(`${CHATS_URL}?action=search_users&q=${encodeURIComponent(query.trim())}`);
+      if (ok) setPeopleResults(data.users || []);
+      else setPeopleResults([]);
+      setPeopleLoading(false);
+    }, 400);
   }, []);
 
   const loadChannels = useCallback(async (tab: "all" | "my" = "all") => {
@@ -1671,15 +1893,37 @@ export default function Index() {
     if (!activeChat || sending) return;
     const text = input.trim();
     if (!overrides && !text) return;
+    const replyId = replyTo?.id;
     setInput(""); setReplyTo(null); setShowAttach(false); setSending(true);
-    const payload: Record<string, unknown> = {
-      action: "send", chat_id: activeChat.chat_id, msg_type: "text", text,
-      ...(replyTo ? { reply_to_id: replyTo.id } : {}),
+
+    // Оптимистичное добавление сообщения
+    const optimisticId = -(Date.now());
+    const optimistic: Message = {
+      id: optimisticId, sender_id: user!.id, text,
+      status: "sent", time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+      out: true, msg_type: "text", reactions: [],
+      ...(replyId ? { reply_to_id: replyId } : {}),
       ...(overrides || {}),
     };
-    await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify(payload) });
-    await loadMessages(activeChat.chat_id);
-    await loadChats();
+    setMessages(prev => [...prev, optimistic]);
+
+    const payload: Record<string, unknown> = {
+      action: "send", chat_id: activeChat.chat_id, msg_type: "text", text,
+      ...(replyId ? { reply_to_id: replyId } : {}),
+      ...(overrides || {}),
+    };
+    const { ok, data } = await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify(payload) });
+
+    if (ok && data.message) {
+      // Заменяем оптимистичное сообщение реальным
+      setMessages(prev => prev.map(m => m.id === optimisticId ? { ...data.message, out: true } : m));
+    } else {
+      // Убираем оптимистичное при ошибке
+      setMessages(prev => prev.filter(m => m.id !== optimisticId));
+    }
+
+    // Обновляем список чатов в фоне (не ждём)
+    loadChats();
     setSending(false);
   };
 
@@ -1845,12 +2089,12 @@ export default function Index() {
   if (!user) return <AuthScreen onAuth={setUser} />;
 
   const navItems: { id: Section; icon: string; label: string }[] = [
-    { id: "chats", icon: "MessageSquare", label: "Чаты" },
-    { id: "channels", icon: "Rss", label: "Каналы" },
-    { id: "bots", icon: "Bot", label: "Боты" },
-    { id: "calls", icon: "Phone", label: "Звонки" },
-    { id: "contacts", icon: "Users", label: "Контакты" },
-    { id: "settings", icon: "Settings", label: "Настройки" },
+    { id: "chats", icon: "MessageSquare", label: t("chats") },
+    { id: "channels", icon: "Rss", label: t("channels") },
+    { id: "bots", icon: "Bot", label: t("bots") },
+    { id: "calls", icon: "Phone", label: t("calls") },
+    { id: "contacts", icon: "Users", label: t("contacts") },
+    { id: "settings", icon: "Settings", label: t("settings") },
   ];
 
   return (
@@ -1961,7 +2205,7 @@ export default function Index() {
                   setSearchQuery(q);
                   if (chatSearchTab === "people") searchPeople(q);
                 }}
-                placeholder={chatSearchTab === "chats" ? "Поиск чатов..." : "ID или логин пользователя..."}
+                placeholder={chatSearchTab === "chats" ? t("search_chats") : t("search_people")}
                 className="w-full pl-9 pr-8 py-2 text-sm rounded-xl bg-muted border-0 outline-none focus:ring-2 focus:ring-primary/30"
               />
               {searchQuery && (
@@ -1972,7 +2216,7 @@ export default function Index() {
               )}
             </div>
             <div className="flex gap-1 mb-1">
-              {([["chats", "Чаты"], ["people", "Люди"]] as [ChatSearchTab, string][]).map(([id, label]) => (
+              {([["chats", t("chats")], ["people", t("people")]] as [ChatSearchTab, string][]).map(([id, label]) => (
                 <button key={id}
                   onClick={() => { setChatSearchTab(id); setSearchQuery(""); setPeopleResults([]); }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all
@@ -1991,7 +2235,8 @@ export default function Index() {
           {section === "settings" && (
             <SettingsScreen user={user} settings={settings} onSettings={updateSettings} onLogout={logout}
               onAvatarUpload={handleAvatarUpload} avatarUploading={avatarUploading}
-              avatarInputRef={avatarInputRef as React.RefObject<HTMLInputElement>} />
+              avatarInputRef={avatarInputRef as React.RefObject<HTMLInputElement>}
+              onUpdateProfile={updateProfile} />
           )}
 
           {/* PROFILE */}
@@ -2011,15 +2256,15 @@ export default function Index() {
                 </div>
                 <div className="text-center">
                   <div className="font-bold text-lg">{user.display_name}</div>
-                  <div className="text-sm text-muted-foreground">{formatPhone(user.username)}</div>
+                  <div className="text-sm text-muted-foreground">@{user.username}</div>
                   {subscription && <Badge plan={(subscription.plan as "standard" | "premium") || "standard"} size="lg" />}
                 </div>
               </div>
               <div className="bg-card rounded-2xl border border-border divide-y divide-border">
                 {[
-                  { icon: "User", label: "Имя", value: user.display_name },
-                  { icon: "Phone", label: "Телефон", value: formatPhone(user.username) },
-                  { icon: "Shield", label: "Шифрование", value: "AES-512 E2E" },
+                  { icon: "User", label: t("name"), value: user.display_name },
+                  { icon: "AtSign", label: t("username"), value: `@${user.username}` },
+                  { icon: "Shield", label: t("encryption"), value: "AES-512 E2E" },
                 ].map(row => (
                   <div key={row.label} className="flex items-center gap-3 px-4 py-3">
                     <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
@@ -2032,9 +2277,13 @@ export default function Index() {
                   </div>
                 ))}
               </div>
+              <button onClick={() => setSection("settings")}
+                className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary/10 hover:bg-primary/15 text-primary text-sm font-medium transition-colors">
+                <Icon name="Pencil" size={15} />{t("edit_profile")}
+              </button>
               <button onClick={logout}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-destructive/10 hover:bg-destructive/15 text-destructive text-sm font-medium">
-                <Icon name="LogOut" size={16} />Выйти из аккаунта
+                <Icon name="LogOut" size={16} />{t("logout")}
               </button>
             </div>
           )}
@@ -2093,7 +2342,7 @@ export default function Index() {
               {!searchQuery && (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 text-muted-foreground text-center">
                   <Icon name="UserSearch" size={36} className="opacity-20" />
-                  <p className="text-sm">Введите ID или логин<br/>чтобы найти человека</p>
+                  <p className="text-sm">{t("search_people")}</p>
                 </div>
               )}
               {searchQuery && peopleLoading && (
@@ -2140,7 +2389,7 @@ export default function Index() {
                         <Avatar user={c} size={40} />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium">{c.display_name}</div>
-                          <div className="text-xs text-muted-foreground">+{c.username}</div>
+                          <div className="text-xs text-muted-foreground">@{c.username}</div>
                         </div>
                         <Icon name="MessageCircle" size={15} className="ml-auto text-muted-foreground" />
                       </button>

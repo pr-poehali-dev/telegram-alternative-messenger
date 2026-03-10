@@ -1,16 +1,18 @@
 """
-WorChat Bot — приветствие, подписки Standard и Premium, поддержка пользователей.
+WorChat Bot — живой ИИ-ассистент на GPT-4o-mini + система подписок.
 GET  /?action=history      — история сообщений с ботом
 GET  /?action=subscription — текущая подписка и все планы
-POST {action: send}        — отправить сообщение боту
-POST {action: create_payment} — создать платёжную сессию
-POST {action: confirm_payment} — подтвердить оплату (webhook/ручная проверка)
+POST {action: send}        — отправить сообщение боту (ИИ отвечает)
+POST {action: create_payment}   — создать платёжную сессию
+POST {action: confirm_payment}  — подтвердить оплату
 POST {action: cancel_subscription} — отменить подписку
 """
 import os
 import json
 import uuid
 import psycopg2
+import urllib.request
+import urllib.error
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p42269837_telegram_alternative")
 
@@ -20,7 +22,6 @@ CORS = {
     "Access-Control-Allow-Headers": "Content-Type, X-Session-Token",
 }
 
-# Планы: id -> {month: price, year: price_year}
 PLANS = {
     "standard": {
         "id": "standard",
@@ -72,10 +73,8 @@ PLANS = {
             "Голосовые и видеозвонки HD 4K",
             "Папки чатов без ограничений",
             "Реакции любыми эмодзи",
-            "Шифрование военного уровня AES-512",
             "Ранний доступ к новым функциям",
             "Персональный менеджер поддержки",
-            "Эксклюзивные стикеры и темы",
         ],
         "description": (
             "⭐ WorChat Premium — максимум возможностей!\n\n"
@@ -84,11 +83,9 @@ PLANS = {
             "• ⭐ Статус Premium + анимированный аватар\n"
             "• 📱 Безлимитные устройства\n"
             "• 🎨 Кастомные темы оформления\n"
-            "• 🏷 Уникальный @username.premium\n"
             "• 📹 Видеозвонки HD 4K\n"
             "• 📂 Папки чатов без ограничений\n"
             "• 🎭 Реакции любыми эмодзи\n"
-            "• 🔐 Шифрование AES-512\n"
             "• 🚀 Ранний доступ к функциям\n"
             "• 👤 Персональный менеджер\n\n"
             "💎 Цена: 499₽/мес или 4990₽/год (2 месяца в подарок)"
@@ -96,11 +93,23 @@ PLANS = {
     },
 }
 
-WELCOME_FLOW = [
-    {"text": "👋 Привет! Я WorChat Bot — твой личный помощник.\n\nДобро пожаловать в самый защищённый мессенджер! 🚀"},
-    {"text": "🔐 Все твои сообщения защищены сквозным шифрованием AES-512.\nДаже мы не можем их прочитать."},
-    {"text": "✨ У нас есть два тарифа подписки:\n\n✦ Standard — 149₽/мес (1490₽/год)\n⭐ Premium — 499₽/мес (4990₽/год)\n\nНапиши /plans чтобы узнать подробности.\nИли /help для списка команд."},
-]
+SYSTEM_PROMPT = """Ты WorChat Bot — живой, дружелюбный ИИ-ассистент внутри мессенджера WorChat.
+Ты умный, полезный, с характером. Отвечай кратко и по делу (2–5 предложений обычно достаточно).
+Используй эмодзи умеренно. Пиши по-русски, если пользователь пишет по-русски.
+
+О WorChat:
+- Это защищённый мессенджер с шифрованием E2E
+- Есть тарифы: Standard (149₽/мес, 1490₽/год) и Premium (499₽/мес, 4990₽/год)
+- Standard: файлы до 1 ГБ, история 3 мес, до 5 устройств
+- Premium: файлы до 10 ГБ, бессрочная история, неограниченные устройства, HD-звонки
+
+Команды которые ты понимаешь:
+/plans — тарифы, /standard — оформить Standard, /premium — оформить Premium,
+/status — статус подписки, /help — список команд
+
+Если пользователь хочет оформить подписку — скажи что нужно написать /standard или /premium.
+Можешь помогать с вопросами, советами, разговорами на любую тему — ты умный ассистент!
+"""
 
 
 def get_conn():
@@ -157,7 +166,7 @@ def save_msg(user_id, role, text, extra=None):
     return msg_id
 
 
-def send_welcome(user_id):
+def send_welcome(user_id, display_name):
     conn = get_conn()
     cur = conn.cursor()
     cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.bot_messages WHERE user_id = %s", (user_id,))
@@ -165,8 +174,12 @@ def send_welcome(user_id):
     conn.close()
     if count > 0:
         return
-    for msg in WELCOME_FLOW:
-        save_msg(user_id, "bot", msg["text"])
+    welcome = (
+        f"👋 Привет, {display_name}! Я WorChat Bot — умный помощник на базе ИИ.\n\n"
+        "Я могу помочь с любыми вопросами, поддержать разговор и рассказать о возможностях WorChat.\n\n"
+        "✨ Попробуй написать мне что угодно — я живой! Или введи /help для команд."
+    )
+    save_msg(user_id, "bot", welcome)
 
 
 def get_subscription(user_id):
@@ -210,27 +223,82 @@ def activate_subscription(user_id, plan, period, payment_ref):
     return sub_id
 
 
-def bot_reply(user_id, text, display_name=""):
+def get_recent_history_for_ai(user_id, limit=20):
+    """Берём последние N сообщений для контекста ИИ."""
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        f"SELECT role, text FROM {SCHEMA}.bot_messages "
+        f"WHERE user_id = %s AND bot_id = 'worchat_bot' "
+        f"ORDER BY created_at DESC LIMIT %s",
+        (user_id, limit),
+    )
+    rows = cur.fetchall()
+    conn.close()
+    # Переворачиваем — нужен хронологический порядок
+    return list(reversed(rows))
+
+
+def ask_openai(user_id, user_text, display_name):
+    """Отправляем запрос к GPT-4o-mini через urllib (без сторонних библиотек)."""
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return None
+
+    # Собираем историю диалога для контекста
+    history = get_recent_history_for_ai(user_id, limit=20)
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+    for role, text in history:
+        # role в БД: "user" или "bot" — конвертируем в OpenAI формат
+        openai_role = "assistant" if role == "bot" else "user"
+        messages.append({"role": openai_role, "content": text})
+
+    # Добавляем текущее сообщение пользователя
+    messages.append({"role": "user", "content": user_text})
+
+    payload = json.dumps({
+        "model": "gpt-4o-mini",
+        "messages": messages,
+        "max_tokens": 500,
+        "temperature": 0.8,
+    }).encode("utf-8")
+
+    req = urllib.request.Request(
+        "https://api.openai.com/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            return result["choices"][0]["message"]["content"].strip()
+    except Exception:
+        return None
+
+
+def handle_command(user_id, text, display_name):
+    """Обработка специальных команд (/plans, /standard, /premium, /status, /help)."""
     t = text.strip().lower()
 
-    if any(w in t for w in ["/plans", "/тарифы", "тарифы", "планы", "подписки"]):
+    if any(w in t for w in ["/plans", "/тарифы"]):
         reply = (
             "📋 Тарифы WorChat:\n\n"
-            "✦ Standard\n"
-            "• 149₽/мес или 1490₽/год\n"
-            "• Файлы до 1 ГБ, история 3 мес\n"
-            "• 5 устройств, папки чатов\n\n"
-            "⭐ Premium\n"
-            "• 499₽/мес или 4990₽/год\n"
-            "• Файлы до 10 ГБ (безлимит)\n"
-            "• Бессрочная история\n"
-            "• Видеозвонки HD 4K\n\n"
+            "✦ Standard — 149₽/мес или 1490₽/год\n"
+            "• Файлы до 1 ГБ, история 3 мес, 5 устройств\n\n"
+            "⭐ Premium — 499₽/мес или 4990₽/год\n"
+            "• Файлы до 10 ГБ, бессрочная история, HD-звонки\n\n"
             "Напиши /standard или /premium для оформления."
         )
         save_msg(user_id, "bot", reply)
         return {"text": reply, "type": "text"}
 
-    if any(w in t for w in ["/standard", "standard", "стандарт", "стандартную"]):
+    if t in ["/standard"] or t == "standard":
         sub = get_subscription(user_id)
         if sub and sub["plan"] == "standard":
             reply = f"✦ У тебя уже активен Standard!\nДействует до: {sub['expires_at']}"
@@ -240,7 +308,7 @@ def bot_reply(user_id, text, display_name=""):
         save_msg(user_id, "bot", plan["description"], {"type": "subscription_offer", "plan": "standard"})
         return {"text": plan["description"], "type": "subscription_offer", "plan": "standard"}
 
-    if any(w in t for w in ["/premium", "premium", "премиум", "премиум-подписку", "/subscription", "подписка", "купить", "оплатить"]):
+    if t in ["/premium"] or t == "premium":
         sub = get_subscription(user_id)
         if sub and sub["plan"] == "premium":
             reply = f"⭐ У тебя уже активен Premium!\nДействует до: {sub['expires_at']}"
@@ -250,7 +318,7 @@ def bot_reply(user_id, text, display_name=""):
         save_msg(user_id, "bot", plan["description"], {"type": "subscription_offer", "plan": "premium"})
         return {"text": plan["description"], "type": "subscription_offer", "plan": "premium"}
 
-    if any(w in t for w in ["/status", "статус", "моя подписка", "мой тариф"]):
+    if any(w in t for w in ["/status", "/моя подписка"]):
         sub = get_subscription(user_id)
         if sub:
             plan = PLANS.get(sub["plan"], {})
@@ -265,37 +333,28 @@ def bot_reply(user_id, text, display_name=""):
         save_msg(user_id, "bot", reply)
         return {"text": reply, "type": "text"}
 
-    if any(w in t for w in ["/start", "начать", "привет", "hello", "hi"]):
-        reply = f"👋 Привет, {display_name}!\n\nЯ WorChat Bot — твой личный помощник.\nНапиши /help для списка команд."
-        save_msg(user_id, "bot", reply)
-        return {"text": reply, "type": "text"}
-
-    if any(w in t for w in ["/help", "помощь", "команды", "help"]):
+    if any(w in t for w in ["/help", "/start"]):
         reply = (
-            "📌 Команды WorChat Bot:\n\n"
+            f"👋 Привет, {display_name}!\n\n"
+            "Я умный ИИ-ассистент WorChat. Могу:\n"
+            "• Ответить на любой вопрос\n"
+            "• Помочь с задачами\n"
+            "• Поддержать разговор\n\n"
+            "📌 Команды:\n"
             "/plans — тарифы подписки\n"
             "/standard — оформить Standard\n"
             "/premium — оформить Premium\n"
-            "/status — моя подписка\n"
-            "/help — список команд\n\n"
-            "По всем вопросам: support@worchat.app"
+            "/status — моя подписка\n\n"
+            "Просто напиши мне что угодно! 🚀"
         )
         save_msg(user_id, "bot", reply)
         return {"text": reply, "type": "text"}
 
-    reply = (
-        f"Привет! Я не понял запрос «{text[:50]}».\n\n"
-        "Попробуй:\n"
-        "• /plans — посмотреть тарифы\n"
-        "• /status — статус подписки\n"
-        "• /help — все команды"
-    )
-    save_msg(user_id, "bot", reply)
-    return {"text": reply, "type": "text"}
+    return None
 
 
 def handler(event: dict, context) -> dict:
-    """Bot and subscriptions handler."""
+    """Bot handler с живым ИИ на GPT-4o-mini."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -315,7 +374,7 @@ def handler(event: dict, context) -> dict:
         action = params.get("action", "history")
 
         if action == "history":
-            send_welcome(user_id)
+            send_welcome(user_id, display_name)
             history = get_history(user_id)
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"messages": history})}
 
@@ -324,13 +383,9 @@ def handler(event: dict, context) -> dict:
             plans_list = []
             for p in PLANS.values():
                 plans_list.append({
-                    "id": p["id"],
-                    "name": p["name"],
-                    "badge": p["badge"],
-                    "color": p["color"],
-                    "price_month": p["price_month"],
-                    "price_year": p["price_year"],
-                    "currency": p["currency"],
+                    "id": p["id"], "name": p["name"], "badge": p["badge"],
+                    "color": p["color"], "price_month": p["price_month"],
+                    "price_year": p["price_year"], "currency": p["currency"],
                     "features": p["features"],
                 })
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"subscription": sub, "plans": plans_list})}
@@ -343,8 +398,30 @@ def handler(event: dict, context) -> dict:
             text = (body.get("text") or "").strip()
             if not text:
                 return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Нет текста"})}
+
+            # Сохраняем сообщение пользователя
             save_msg(user_id, "user", text)
-            reply = bot_reply(user_id, text, display_name)
+
+            # Сначала проверяем специальные команды
+            command_reply = handle_command(user_id, text, display_name)
+            if command_reply:
+                return {"statusCode": 200, "headers": CORS, "body": json.dumps({"reply": command_reply})}
+
+            # Если не команда — спрашиваем GPT
+            ai_text = ask_openai(user_id, text, display_name)
+
+            if ai_text:
+                save_msg(user_id, "bot", ai_text)
+                reply = {"text": ai_text, "type": "text"}
+            else:
+                # Fallback если OpenAI недоступен
+                fallback = (
+                    "Прости, сейчас у меня проблемы со связью 🛰️\n"
+                    "Попробуй чуть позже или напиши /help для команд."
+                )
+                save_msg(user_id, "bot", fallback)
+                reply = {"text": fallback, "type": "text"}
+
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({"reply": reply})}
 
         if action == "create_payment":
@@ -357,11 +434,8 @@ def handler(event: dict, context) -> dict:
             payment_ref = f"WC-{uuid.uuid4().hex[:12].upper()}"
             return {"statusCode": 200, "headers": CORS, "body": json.dumps({
                 "payment": {
-                    "ref": payment_ref,
-                    "plan": plan_id,
-                    "period": period,
-                    "amount": amount,
-                    "currency": "RUB",
+                    "ref": payment_ref, "plan": plan_id, "period": period,
+                    "amount": amount, "currency": "RUB",
                     "description": f"WorChat {plan['name']} — {'1 год' if period == 'year' else '1 месяц'}",
                 }
             })}
@@ -398,8 +472,8 @@ def handler(event: dict, context) -> dict:
             )
             conn.commit()
             conn.close()
-            reply = "Подписка отменена. Жаль расставаться! 😢\n\nНапиши /plans чтобы снова подписаться."
-            save_msg(user_id, "bot", reply)
-            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"cancelled": True, "message": reply})}
+            cancel_text = "Подписка отменена. Жаль тебя терять! 😢\nТы всегда можешь вернуться: /plans"
+            save_msg(user_id, "bot", cancel_text)
+            return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True, "message": cancel_text})}
 
     return {"statusCode": 404, "headers": CORS, "body": json.dumps({"error": "Not found"})}

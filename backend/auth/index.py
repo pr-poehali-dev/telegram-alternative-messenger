@@ -1,9 +1,10 @@
 """
-WorChat Auth API — регистрация, вход, выход, текущий пользователь.
-POST / {action: register} — создать аккаунт
-POST / {action: login}    — войти
-POST / {action: logout}   — выйти
-GET  /                    — текущий пользователь (по токену)
+WorChat Auth API — регистрация, вход, выход, текущий пользователь, обновление профиля.
+POST / {action: register}       — создать аккаунт
+POST / {action: login}          — войти
+POST / {action: logout}         — выйти
+POST / {action: update_profile} — обновить имя / username
+GET  /                          — текущий пользователь (по токену)
 """
 import json
 import os
@@ -11,6 +12,7 @@ import hashlib
 import secrets
 import random
 import psycopg2
+import re
 
 SCHEMA = os.environ.get("MAIN_DB_SCHEMA", "t_p42269837_telegram_alternative")
 COLORS = ["#4F86C6", "#5BA87A", "#C47DB5", "#D4885A", "#7B8FA6", "#5966C0", "#B5574A", "#6A9E72"]
@@ -32,6 +34,9 @@ def get_initials(name: str) -> str:
     if len(parts) >= 2:
         return (parts[0][0] + parts[1][0]).upper()
     return name[:2].upper()
+
+def valid_username(u: str) -> bool:
+    return bool(re.match(r'^[a-zA-Z0-9_]{3,32}$', u))
 
 def get_user_by_token(conn, token: str):
     cur = conn.cursor()
@@ -55,6 +60,7 @@ def err(code, msg):
     return {"statusCode": code, "headers": CORS, "body": json.dumps({"error": msg})}
 
 def handler(event: dict, context) -> dict:
+    """Auth handler — register, login, logout, get user, update profile."""
     if event.get("httpMethod") == "OPTIONS":
         return {"statusCode": 200, "headers": CORS, "body": ""}
 
@@ -84,8 +90,8 @@ def handler(event: dict, context) -> dict:
                     return err(400, "Заполните все поля")
                 if len(password) < 6:
                     return err(400, "Пароль минимум 6 символов")
-                if len(username) < 3:
-                    return err(400, "Логин минимум 3 символа")
+                if not valid_username(username):
+                    return err(400, "Логин: только латиница, цифры и _ (3–32 символа)")
 
                 cur = conn.cursor()
                 cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE username = %s", (username,))
@@ -111,7 +117,7 @@ def handler(event: dict, context) -> dict:
                 return ok({
                     "token": session_token,
                     "user": {"id": user_id, "username": username, "display_name": display_name,
-                             "avatar_color": color, "avatar_initials": initials, "status": "online"}
+                             "avatar_color": color, "avatar_initials": initials, "status": "online", "avatar_url": None}
                 })
 
             if action == "login":
@@ -124,7 +130,7 @@ def handler(event: dict, context) -> dict:
                 cur = conn.cursor()
                 pw_hash = hash_password(password)
                 cur.execute(f"""
-                    SELECT id, username, display_name, avatar_color, avatar_initials
+                    SELECT id, username, display_name, avatar_color, avatar_initials, avatar_url
                     FROM {SCHEMA}.users WHERE username = %s AND password_hash = %s
                 """, (username, pw_hash))
                 row = cur.fetchone()
@@ -132,7 +138,7 @@ def handler(event: dict, context) -> dict:
                     cur.close()
                     return err(401, "Неверный логин или пароль")
 
-                user_id, uname, dname, color, initials = row
+                user_id, uname, dname, color, initials, avatar_url = row
                 cur.execute(f"UPDATE {SCHEMA}.users SET status = 'online', last_seen_at = NOW() WHERE id = %s", (user_id,))
                 session_token = secrets.token_hex(32)
                 cur.execute(f"INSERT INTO {SCHEMA}.sessions (user_id, token) VALUES (%s, %s)", (user_id, session_token))
@@ -142,7 +148,7 @@ def handler(event: dict, context) -> dict:
                 return ok({
                     "token": session_token,
                     "user": {"id": user_id, "username": uname, "display_name": dname,
-                             "avatar_color": color, "avatar_initials": initials, "status": "online"}
+                             "avatar_color": color, "avatar_initials": initials, "status": "online", "avatar_url": avatar_url}
                 })
 
             if action == "logout":
@@ -156,6 +162,52 @@ def handler(event: dict, context) -> dict:
                     conn.commit()
                     cur.close()
                 return ok({"ok": True})
+
+            if action == "update_profile":
+                if not token:
+                    return err(401, "Не авторизован")
+                user = get_user_by_token(conn, token)
+                if not user:
+                    return err(401, "Сессия истекла")
+
+                display_name = (body.get("display_name") or "").strip()
+                new_username = (body.get("username") or "").strip().lower()
+
+                if not display_name:
+                    return err(400, "Имя не может быть пустым")
+                if len(display_name) > 64:
+                    return err(400, "Имя слишком длинное (макс. 64 символа)")
+
+                cur = conn.cursor()
+
+                # Обновляем имя
+                new_initials = get_initials(display_name)
+
+                if new_username and new_username != user["username"]:
+                    if not valid_username(new_username):
+                        cur.close()
+                        return err(400, "Username: только a-z, 0-9 и _ (3–32 символа)")
+                    cur.execute(f"SELECT id FROM {SCHEMA}.users WHERE username = %s AND id != %s", (new_username, user["id"]))
+                    if cur.fetchone():
+                        cur.close()
+                        return err(409, "Этот username уже занят")
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.users
+                        SET display_name = %s, avatar_initials = %s, username = %s
+                        WHERE id = %s
+                    """, (display_name, new_initials, new_username, user["id"]))
+                else:
+                    cur.execute(f"""
+                        UPDATE {SCHEMA}.users
+                        SET display_name = %s, avatar_initials = %s
+                        WHERE id = %s
+                    """, (display_name, new_initials, user["id"]))
+
+                conn.commit()
+                cur.close()
+
+                updated_user = get_user_by_token(conn, token)
+                return ok({"user": updated_user})
 
             return err(400, "Неизвестный action")
 

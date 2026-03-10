@@ -8,11 +8,19 @@
       "bodyMatcher": "partial"
     },
     {
-      "name": "Register new user",
+      "name": "Register duplicate user",
       "method": "POST",
       "path": "/",
       "body": {"action": "register", "username": "testuser_wc01", "display_name": "Test User", "password": "secret123"},
-      "expectedStatus": 200,
+      "expectedStatus": 409,
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Update profile without token",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "update_profile", "display_name": "New Name"},
+      "expectedStatus": 401,
       "bodyMatcher": "partial"
     },
     {
