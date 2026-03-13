@@ -6,7 +6,7 @@ import {
   DEFAULT_SETTINGS, useT,
 } from "./IndexTypes";
 import {
-  apiFetch, fileToBase64, formatBytes, applyTheme,
+  apiFetch, fileToBase64, applyTheme,
   AUTH_URL, CHATS_URL, MESSAGES_URL, BOT_URL, UPLOAD_URL, CALLS_URL, CHANNELS_URL,
 } from "@/lib/api";
 import {
@@ -14,10 +14,16 @@ import {
   MessageBubble, IncomingCallModal, CallScreen,
   SettingsScreen, CreateChannelModal, EditChannelModal, PaymentModal,
   VoiceRecorder, VideoNoteRecorder, UserProfileModal, PhotoViewer,
+  ToastProvider, useToast, requestNotificationPermission, showBrowserNotification,
 } from "./IndexComponents";
 
 // ─── Main App ─────────────────────────────────────────────────────────────────
 export default function Index() {
+  return <ToastProvider><IndexApp /></ToastProvider>;
+}
+
+function IndexApp() {
+  const { show: toast } = useToast();
   const [onboardingDone, setOnboardingDone] = useState(() => !!localStorage.getItem("wc_onboarded"));
   const [user, setUser] = useState<User | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
@@ -106,7 +112,8 @@ export default function Index() {
     const token = localStorage.getItem("wc_token") || "";
     if (!token) { setAuthChecked(true); return; }
     apiFetch(AUTH_URL).then(({ ok, data }) => {
-      if (ok) setUser(data.user); else localStorage.removeItem("wc_token");
+      if (ok) { setUser(data.user); requestNotificationPermission(); }
+      else localStorage.removeItem("wc_token");
       setAuthChecked(true);
     });
   }, []);
@@ -133,6 +140,11 @@ export default function Index() {
     if (user && (section === "contacts" || section === "search")) loadContacts();
   }, [user, section, loadContacts]);
 
+  const activeChatRef = useRef<typeof activeChat>(null);
+  useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
+  const settingsRef = useRef<typeof settings>(settings);
+  useEffect(() => { settingsRef.current = settings; }, [settings]);
+
   const loadMessages = useCallback(async (chatId: number, afterId?: number) => {
     const url = afterId
       ? `${MESSAGES_URL}?chat_id=${chatId}&after=${afterId}`
@@ -145,7 +157,20 @@ export default function Index() {
         setMessages(prev => {
           const existingIds = new Set(prev.map(m => m.id));
           const fresh = newMsgs.filter(m => !existingIds.has(m.id));
-          return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          if (fresh.length > 0) {
+            const incomingFromOther = fresh.filter(m => !m.out);
+            if (incomingFromOther.length > 0 && settingsRef.current?.notifications) {
+              const chat = activeChatRef.current;
+              const sender = chat?.partner?.display_name || "Новое сообщение";
+              const lastMsg = incomingFromOther[incomingFromOther.length - 1];
+              const body = lastMsg.msg_type !== "text" ? "📎 Вложение" : (lastMsg.text.slice(0, 80) || "Сообщение");
+              if (document.hidden) {
+                showBrowserNotification(sender, body, chat?.partner?.avatar_url);
+              }
+            }
+            return [...prev, ...fresh];
+          }
+          return prev;
         });
         lastMsgIdRef.current = newMsgs[newMsgs.length - 1].id;
       }
@@ -200,12 +225,28 @@ export default function Index() {
   }, [user, activeBotId, loadBotHistory, loadSubscription]);
 
   // Incoming call poll
+  const incomingCallRef = useRef<CallSession | null>(null);
+  useEffect(() => { incomingCallRef.current = incomingCall; }, [incomingCall]);
   useEffect(() => {
     if (!user || !CALLS_URL) return;
     callPollRef.current = setInterval(async () => {
       if (activeCall) return;
       const { ok, data } = await apiFetch(`${CALLS_URL}?action=incoming`);
-      if (ok && data.call) setIncomingCall(data.call);
+      if (ok && data.call) {
+        const call: CallSession = data.call;
+        if (!incomingCallRef.current || incomingCallRef.current.room_id !== call.room_id) {
+          setIncomingCall(call);
+          if (settingsRef.current?.notifications) {
+            showBrowserNotification(
+              call.call_type === "video" ? "Входящий видеозвонок" : "Входящий звонок",
+              `${call.caller.display_name} вызывает вас`,
+              call.caller.avatar_url
+            );
+          }
+        }
+      } else if (ok && !data.call) {
+        setIncomingCall(null);
+      }
     }, 3000);
     return () => { if (callPollRef.current) clearInterval(callPollRef.current); };
   }, [user, activeCall]);
@@ -227,6 +268,7 @@ export default function Index() {
     await apiFetch(AUTH_URL, { method: "POST", body: JSON.stringify({ action: "logout" }) });
     localStorage.removeItem("wc_token");
     setUser(null); setChats([]); setContacts([]); setActiveChat(null); setMessages([]);
+    toast("Вы вышли из аккаунта", "info");
   };
 
   const updateProfile = async (display_name: string, username: string): Promise<string | null> => {
@@ -234,7 +276,7 @@ export default function Index() {
       method: "POST",
       body: JSON.stringify({ action: "update_profile", display_name, username }),
     });
-    if (ok) { setUser(data.user); return null; }
+    if (ok) { setUser(data.user); toast("Профиль обновлён", "success"); return null; }
     return data.error || "Ошибка сохранения";
   };
 
@@ -313,6 +355,7 @@ export default function Index() {
     if (ok) {
       setChannels(prev => prev.map(c => c.id === ch.id ? { ...c, subscribed: data.subscribed, members_count: c.members_count + (data.subscribed ? 1 : -1) } : c));
       if (activeChannel?.id === ch.id) setActiveChannel(prev => prev ? { ...prev, subscribed: data.subscribed } : prev);
+      toast(data.subscribed ? `Подписка на «${ch.name}»` : `Отписка от «${ch.name}»`, "success");
     }
   };
 
@@ -346,6 +389,9 @@ export default function Index() {
       setShowCreateChannel(false);
       setChannels(prev => [data.channel, ...prev]);
       openChannel(data.channel);
+      toast(`Канал «${name}» создан`, "success");
+    } else {
+      toast(data?.error || "Ошибка создания канала", "error");
     }
   };
 
@@ -358,6 +404,9 @@ export default function Index() {
       setChannels(prev => prev.map(c => c.id === channelId ? { ...c, ...data.channel } : c));
       setActiveChannel(prev => prev?.id === channelId ? { ...prev, ...data.channel } : prev);
       setShowEditChannel(false);
+      toast("Канал обновлён", "success");
+    } else if (!ok) {
+      toast("Ошибка обновления канала", "error");
     }
   };
 
@@ -370,6 +419,9 @@ export default function Index() {
       setChannels(prev => prev.filter(c => c.id !== channelId));
       setActiveChannel(null);
       setMobileView("list");
+      toast("Канал удалён", "success");
+    } else {
+      toast("Ошибка удаления канала", "error");
     }
   };
 
@@ -393,6 +445,9 @@ export default function Index() {
     if (ok) {
       setPaymentStep("success");
       await loadSubscription();
+      toast("Подписка активирована!", "success");
+    } else {
+      toast("Ошибка оплаты", "error");
     }
     setPaymentLoading(false);
   };
@@ -445,6 +500,8 @@ export default function Index() {
     });
     if (ok) {
       await sendMessage({ msg_type: type, media_url: data.url, media_name: file.name, media_size: file.size, text: "" });
+    } else {
+      toast("Ошибка загрузки файла", "error");
     }
     setUploadingMedia(false);
   };
@@ -455,31 +512,35 @@ export default function Index() {
     const { ok, data } = await apiFetch(UPLOAD_URL, {
       method: "POST", body: JSON.stringify({ type: "avatar", mime: file.type, data: b64, name: file.name }),
     });
-    if (ok && user) setUser({ ...user, avatar_url: data.url });
+    if (ok && user) { setUser({ ...user, avatar_url: data.url }); toast("Аватар обновлён", "success"); }
+    else if (!ok) toast("Ошибка загрузки аватара", "error");
     setAvatarUploading(false);
   };
 
   const sendGeo = () => {
     if (!activeChat) return;
+    toast("Получаю геолокацию...", "info");
     navigator.geolocation.getCurrentPosition(
       pos => sendMessage({ msg_type: "geo", geo_lat: pos.coords.latitude, geo_lon: pos.coords.longitude, text: "" }),
-      () => alert("Нет доступа к геолокации"),
+      () => toast("Нет доступа к геолокации", "error"),
     );
   };
 
   const deleteChat = async () => {
     if (!activeChat) return;
     setDeletingChat(true); setChatMenuOpen(false);
-    await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify({ action: "delete_chat", chat_id: activeChat.chat_id }) });
+    const { ok } = await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify({ action: "delete_chat", chat_id: activeChat.chat_id }) });
     setMessages([]); setChats(p => p.filter(c => c.chat_id !== activeChat.chat_id));
     setActiveChat(null); setMobileView("list"); setDeletingChat(false);
+    if (ok) toast("Чат удалён", "success"); else toast("Ошибка удаления чата", "error");
   };
 
   const clearChat = async () => {
     if (!activeChat) return;
     setChatMenuOpen(false);
-    await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify({ action: "clear_chat", chat_id: activeChat.chat_id }) });
+    const { ok } = await apiFetch(MESSAGES_URL, { method: "POST", body: JSON.stringify({ action: "clear_chat", chat_id: activeChat.chat_id }) });
     setMessages([]); loadChats();
+    if (ok) toast("История очищена", "success"); else toast("Ошибка очистки", "error");
   };
 
   const sendBotMessage = async () => {
@@ -510,6 +571,9 @@ export default function Index() {
     if (ok) {
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, text: data.text, edited_at: data.edited_at } : m));
       setEditingMessage(null); setEditInput("");
+      toast("Сообщение изменено", "success");
+    } else {
+      toast("Ошибка редактирования", "error");
     }
   };
 
@@ -520,6 +584,9 @@ export default function Index() {
     if (ok) {
       setMessages(prev => prev.map(m => m.id === msgId ? { ...m, is_removed: true, text: "" } : m));
       setMsgContextMenu(null);
+      toast("Сообщение удалено", "info");
+    } else {
+      toast("Ошибка удаления", "error");
     }
   };
 
@@ -542,16 +609,19 @@ export default function Index() {
     setMsgContextMenu(null);
   };
 
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((res, rej) => {
+    const reader = new FileReader();
+    reader.onload = () => res((reader.result as string).split(",")[1]);
+    reader.onerror = rej;
+    reader.readAsDataURL(blob);
+  });
+
   const sendVoiceMessage = async (blob: Blob, duration: number) => {
     if (!activeChat) return;
     setShowVoiceRecorder(false);
     setUploadingMedia(true);
-    const b64 = await new Promise<string>((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => res((reader.result as string).split(",")[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(blob);
-    });
+    toast("Отправляю голосовое...", "info");
+    const b64 = await blobToBase64(blob);
     const { ok, data } = await apiFetch(UPLOAD_URL, {
       method: "POST",
       body: JSON.stringify({ type: "voice", mime: blob.type || "audio/webm", data: b64, name: `voice_${Date.now()}.webm` }),
@@ -559,6 +629,8 @@ export default function Index() {
     if (ok) {
       await sendMessage({ msg_type: "voice", media_url: data.url, media_name: "Голосовое", media_size: blob.size, text: "",
         ...(({ media_duration: duration } as unknown) as Partial<Message>) });
+    } else {
+      toast("Ошибка отправки голосового", "error");
     }
     setUploadingMedia(false);
   };
@@ -567,12 +639,8 @@ export default function Index() {
     if (!activeChat) return;
     setShowVideoNoteRecorder(false);
     setUploadingMedia(true);
-    const b64 = await new Promise<string>((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => res((reader.result as string).split(",")[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(blob);
-    });
+    toast("Отправляю видеосообщение...", "info");
+    const b64 = await blobToBase64(blob);
     const { ok, data } = await apiFetch(UPLOAD_URL, {
       method: "POST",
       body: JSON.stringify({ type: "video_note", mime: "video/webm", data: b64, name: `videonote_${Date.now()}.webm` }),
@@ -580,6 +648,8 @@ export default function Index() {
     if (ok) {
       await sendMessage({ msg_type: "video_note", media_url: data.url, text: "",
         ...(({ media_duration: duration } as unknown) as Partial<Message>) });
+    } else {
+      toast("Ошибка отправки видеосообщения", "error");
     }
     setUploadingMedia(false);
   };
@@ -593,10 +663,12 @@ export default function Index() {
 
   const startCall = async (partner: User, type: "audio" | "video") => {
     if (!CALLS_URL) return;
+    toast(`Звоним ${partner.display_name}...`, "info");
     const { ok, data } = await apiFetch(CALLS_URL, {
       method: "POST", body: JSON.stringify({ action: "initiate", callee_id: partner.id, call_type: type }),
     });
     if (ok) setActiveCall({ partner, type, roomId: data.room_id, isCallee: false });
+    else toast("Не удалось начать звонок", "error");
   };
 
   const answerCall = async (call: CallSession) => {
@@ -610,14 +682,20 @@ export default function Index() {
     if (!CALLS_URL) return;
     await apiFetch(CALLS_URL, { method: "POST", body: JSON.stringify({ action: "reject", room_id: call.room_id }) });
     setIncomingCall(null);
+    toast("Звонок отклонён", "info");
   };
+
+  // Document title with unread badge
+  const totalUnread = chats.reduce((s, c) => s + (c.unread || 0), 0);
+  useEffect(() => {
+    document.title = totalUnread > 0 ? `(${totalUnread}) WorChat` : "WorChat";
+  }, [totalUnread]);
 
   const filteredChats = chats.filter(c => c.partner.display_name.toLowerCase().includes(searchQuery.toLowerCase()));
   const filteredContacts = contacts.filter(c =>
     c.display_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.username.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  const totalUnread = chats.reduce((s, c) => s + (c.unread || 0), 0);
   const chatBgClass = settings.wallpaper === "dots" ? "chat-bg-dots"
     : settings.wallpaper === "grid" ? "chat-bg-grid"
     : settings.wallpaper === "bubbles" ? "chat-bg-bubbles"
@@ -636,7 +714,7 @@ export default function Index() {
       <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>;
   }
-  if (!user) return <AuthScreen onAuth={setUser} />;
+  if (!user) return <AuthScreen onAuth={(u) => { setUser(u); requestNotificationPermission(); toast(`Добро пожаловать, ${u.display_name}!`, "success"); }} />;
 
   const navItems: { id: Section; icon: string; label: string }[] = [
     { id: "chats", icon: "MessageSquare", label: t("chats") },
@@ -1424,7 +1502,7 @@ export default function Index() {
                       <Icon name="Pencil" size={14} className="text-muted-foreground" />Редактировать
                     </button>
                   )}
-                  <button onClick={() => { navigator.clipboard.writeText(msgContextMenu.msg.text); setMsgContextMenu(null); }}
+                  <button onClick={() => { navigator.clipboard.writeText(msgContextMenu.msg.text); setMsgContextMenu(null); toast("Скопировано", "success"); }}
                     className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm hover:bg-muted text-left">
                     <Icon name="Copy" size={14} className="text-muted-foreground" />Копировать
                   </button>
@@ -1470,7 +1548,7 @@ export default function Index() {
                           {isRemoved ? (
                             <p className="text-sm text-muted-foreground">Сообщение удалено</p>
                           ) : (
-                            <MessageBubble msg={msg} allMessages={messages} />
+                            <MessageBubble msg={msg} allMessages={messages} onPhotoClick={url => setViewingPhoto(url)} />
                           )}
                           <div className={`flex items-center justify-end gap-1 mt-0.5`}>
                             {msg.edited_at && !isRemoved && (
