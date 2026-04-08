@@ -61,9 +61,22 @@ export interface AppSettings {
   notifications: boolean;
   notifSound: boolean;
   notifPreview: boolean;
+  notifCalls: boolean;
+  notifChannels: boolean;
   language: string;
   region: string;
   fontSize: "sm" | "md" | "lg";
+  // Privacy
+  privacyLastSeen: "all" | "contacts" | "nobody";
+  privacyAvatar: "all" | "contacts" | "nobody";
+  privacyReadReceipts: boolean;
+  privacyTyping: boolean;
+  privacyForwards: "all" | "contacts" | "nobody";
+  // Storage
+  autoDownloadImages: boolean;
+  autoDownloadVideos: boolean;
+  autoDownloadDocs: boolean;
+  saveToGallery: boolean;
 }
 export interface DeviceInfo {
   name: string;
@@ -99,8 +112,11 @@ export interface ChannelPost {
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: "light", accent: "blue", wallpaper: "plain",
-  notifications: true, notifSound: true, notifPreview: true,
+  notifications: true, notifSound: true, notifPreview: true, notifCalls: true, notifChannels: true,
   language: "ru", region: "RU", fontSize: "md",
+  privacyLastSeen: "all", privacyAvatar: "all",
+  privacyReadReceipts: true, privacyTyping: true, privacyForwards: "all",
+  autoDownloadImages: true, autoDownloadVideos: false, autoDownloadDocs: false, saveToGallery: false,
 };
 
 // ─── i18n ──────────────────────────────────────────────────────────────────────

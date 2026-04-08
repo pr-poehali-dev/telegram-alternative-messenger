@@ -159,13 +159,34 @@ function IndexApp() {
           const fresh = newMsgs.filter(m => !existingIds.has(m.id));
           if (fresh.length > 0) {
             const incomingFromOther = fresh.filter(m => !m.out);
-            if (incomingFromOther.length > 0 && settingsRef.current?.notifications) {
+            if (incomingFromOther.length > 0) {
+              const s = settingsRef.current;
               const chat = activeChatRef.current;
-              const sender = chat?.partner?.display_name || "Новое сообщение";
-              const lastMsg = incomingFromOther[incomingFromOther.length - 1];
-              const body = lastMsg.msg_type !== "text" ? "📎 Вложение" : (lastMsg.text.slice(0, 80) || "Сообщение");
-              if (document.hidden) {
-                showBrowserNotification(sender, body, chat?.partner?.avatar_url);
+              // Sound notification
+              if (s?.notifSound) {
+                try {
+                  const ctx = new AudioContext();
+                  const osc = ctx.createOscillator();
+                  const gain = ctx.createGain();
+                  osc.connect(gain); gain.connect(ctx.destination);
+                  osc.type = "sine";
+                  osc.frequency.setValueAtTime(880, ctx.currentTime);
+                  osc.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.1);
+                  gain.gain.setValueAtTime(0.15, ctx.currentTime);
+                  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+                  osc.start(); osc.stop(ctx.currentTime + 0.25);
+                } catch { /* ignore */ }
+              }
+              // Browser push notification
+              if (s?.notifications) {
+                const sender = chat?.partner?.display_name || "Новое сообщение";
+                const lastMsg = incomingFromOther[incomingFromOther.length - 1];
+                const preview = s.notifPreview
+                  ? (lastMsg.msg_type !== "text" ? "📎 Вложение" : (lastMsg.text.slice(0, 80) || "Сообщение"))
+                  : "Новое сообщение";
+                if (document.hidden) {
+                  showBrowserNotification(sender, preview, chat?.partner?.avatar_url);
+                }
               }
             }
             return [...prev, ...fresh];
