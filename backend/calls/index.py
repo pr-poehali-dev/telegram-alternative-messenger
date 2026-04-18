@@ -220,9 +220,8 @@ def handler(event: dict, context) -> dict:
 
             if action == "signal":
                 room_id = body.get("room_id")
-                # Accept both "signal_type"/"signal_data" (frontend) and "type"/"data" (legacy)
-                signal_type = body.get("signal_type") or body.get("type")
-                data = body.get("signal_data") or body.get("data") or {}
+                signal_type = body.get("type")  # 'offer'|'answer'|'ice'
+                data = body.get("data", {})
                 if not room_id or not signal_type:
                     return err(400, "Нет room_id или type")
 

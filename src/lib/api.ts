@@ -18,15 +18,9 @@ export async function apiFetch(url: string, opts: RequestInit = {}) {
     ...(token ? { "X-Session-Token": token } : {}),
     ...((opts.headers as Record<string, string>) || {}),
   };
-  try {
-    const res = await fetch(url, { ...opts, headers });
-    let data: Record<string, unknown> = {};
-    try { data = await res.json(); } catch { data = {}; }
-    return { ok: res.ok, status: res.status, data };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : "Network error";
-    return { ok: false, status: 0, data: { error: msg } };
-  }
+  const res = await fetch(url, { ...opts, headers });
+  const data = await res.json();
+  return { ok: res.ok, status: res.status, data };
 }
 
 export function fileToBase64(file: File): Promise<string> {

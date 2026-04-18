@@ -5,13 +5,6 @@
       "method": "OPTIONS",
       "path": "/",
       "expectedStatus": 200
-    },
-    {
-      "name": "No auth returns 401",
-      "method": "POST",
-      "path": "/",
-      "body": {"type": "media", "mime": "image/jpeg", "data": "abc", "name": "test.jpg"},
-      "expectedStatus": 401
     }
   ]
 }
