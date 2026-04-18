@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, createContext, useContext } from "react";
 import Icon from "@/components/ui/icon";
-import { User, Message, CallSession, AppSettings, Accent, Theme, Wallpaper, Channel, LANGUAGES, REGIONS, useT } from "./IndexTypes";
+import { User, Message, CallSession, AppSettings, Accent, Theme, Wallpaper, DeviceInfo, Channel, LANGUAGES, REGIONS, useT } from "./IndexTypes";
 import { apiFetch, formatBytes, formatPhone, detectBrowser, detectOS, AUTH_URL, CALLS_URL, UPLOAD_URL } from "@/lib/api";
 
 // ─── Toast System ─────────────────────────────────────────────────────────────
@@ -456,12 +456,6 @@ export function MessageBubble({ msg, allMessages, onPhotoClick }: {
   };
   return (
     <div>
-      {msg.forwarded_from_id && (
-        <div className={`flex items-center gap-1 mb-1 ${msg.out ? "text-white/60" : "text-muted-foreground"}`}>
-          <Icon name="Forward" size={11} />
-          <span className="text-[11px]">Переслано</span>
-        </div>
-      )}
       {renderContent()}
       <div className={`flex items-center justify-end gap-1 mt-0.5 ${msg.out ? "text-white/70" : "text-muted-foreground"}`}>
         <span className="text-[10px]">{msg.time}</span>
@@ -1089,177 +1083,6 @@ export function CallScreen({ partner, callType, roomId, isCallee, onEnd }: {
   );
 }
 
-// ─── Settings: Storage Tab ────────────────────────────────────────────────────
-function StorageTab({ settings, set }: { settings: AppSettings; set: (p: Partial<AppSettings>) => void }) {
-  const [cleared, setCleared] = useState(false);
-
-  const cacheSize = (() => {
-    try {
-      let total = 0;
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key) total += (localStorage.getItem(key) || "").length * 2;
-      }
-      return total < 1024 ? `${total} Б` : total < 1048576 ? `${(total / 1024).toFixed(1)} КБ` : `${(total / 1048576).toFixed(1)} МБ`;
-    } catch { return "—"; }
-  })();
-
-  const clearCache = () => {
-    const keep = ["wc_token", "wc_settings", "wc_onboarded"];
-    const toRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i);
-      if (k && !keep.includes(k)) toRemove.push(k);
-    }
-    toRemove.forEach(k => localStorage.removeItem(k));
-    if ("caches" in window) caches.keys().then(names => names.forEach(n => caches.delete(n)));
-    setCleared(true);
-    setTimeout(() => setCleared(false), 3000);
-  };
-
-  return (
-    <div className="space-y-2.5 animate-fade-in">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Данные и хранилище</p>
-
-      <div className="bg-card rounded-2xl border border-border p-4 space-y-2">
-        <div className="flex items-center justify-between">
-          <span className="text-sm font-medium">Локальный кэш приложения</span>
-          <span className="text-xs font-mono text-muted-foreground">{cacheSize}</span>
-        </div>
-        <p className="text-xs text-muted-foreground">Настройки, история и временные данные</p>
-      </div>
-
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Автозагрузка</p>
-
-      {([
-        { key: "autoDownloadImages" as const, label: "Фотографии", desc: "Загружать автоматически", icon: "Image" },
-        { key: "autoDownloadVideos" as const, label: "Видео", desc: "Видеофайлы (расход трафика)", icon: "Video" },
-        { key: "autoDownloadDocs" as const, label: "Файлы и документы", desc: "PDF, архивы, таблицы", icon: "FileText" },
-      ] as { key: keyof AppSettings; label: string; desc: string; icon: string }[]).map(item => (
-        <div key={String(item.key)} className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-              <Icon name={item.icon} size={16} className="text-muted-foreground" />
-            </div>
-            <div>
-              <div className="text-sm font-medium">{item.label}</div>
-              <div className="text-xs text-muted-foreground">{item.desc}</div>
-            </div>
-          </div>
-          <button onClick={() => set({ [item.key]: !settings[item.key] } as Partial<AppSettings>)}
-            className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${settings[item.key] ? "bg-primary" : "bg-muted-foreground/30"}`}>
-            <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${settings[item.key] ? "left-[calc(100%-22px)]" : "left-0.5"}`} />
-          </button>
-        </div>
-      ))}
-
-      <div className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-            <Icon name="Download" size={16} className="text-muted-foreground" />
-          </div>
-          <div>
-            <div className="text-sm font-medium">Сохранять в галерею</div>
-            <div className="text-xs text-muted-foreground">Медиа сохраняется на устройство</div>
-          </div>
-        </div>
-        <button onClick={() => set({ saveToGallery: !settings.saveToGallery })}
-          className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${settings.saveToGallery ? "bg-primary" : "bg-muted-foreground/30"}`}>
-          <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${settings.saveToGallery ? "left-[calc(100%-22px)]" : "left-0.5"}`} />
-        </button>
-      </div>
-
-      {cleared ? (
-        <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-2xl">
-          <Icon name="CheckCircle" size={14} className="text-green-500" />
-          <p className="text-xs text-green-600 font-medium">Кэш успешно очищен</p>
-        </div>
-      ) : (
-        <button onClick={clearCache}
-          className="w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-colors flex items-center justify-center gap-2">
-          <Icon name="Trash2" size={16} />Очистить кэш приложения
-        </button>
-      )}
-    </div>
-  );
-}
-
-// ─── Settings: Devices Tab ────────────────────────────────────────────────────
-function DevicesTab({ onLogout }: { onLogout: () => void }) {
-  const os = detectOS();
-  const browser = detectBrowser();
-  const isMobile = os === "iOS" || os === "Android";
-  const [confirmLogout, setConfirmLogout] = useState(false);
-
-  const deviceInfo = [
-    { label: "Браузер", value: browser },
-    { label: "Операционная система", value: os },
-    { label: "Платформа", value: navigator.platform || "Неизвестно" },
-    { label: "Язык системы", value: navigator.language },
-    { label: "Подключение", value: navigator.onLine ? "Онлайн" : "Офлайн" },
-    { label: "Тип экрана", value: `${window.screen.width}×${window.screen.height}` },
-  ];
-
-  return (
-    <div className="space-y-2.5 animate-fade-in">
-      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Активные сессии</p>
-
-      <div className="p-3.5 bg-card rounded-2xl border-2 border-primary/30 bg-primary/5">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-            <Icon name={isMobile ? "Smartphone" : "Monitor"} size={20} className="text-primary" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold">{os} · {browser}</span>
-              <span className="text-[10px] font-bold text-white bg-primary px-2 py-0.5 rounded-full">Текущая</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
-              <span className="text-xs text-green-600 dark:text-green-400">Активна сейчас</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-4 bg-muted/50 rounded-2xl text-center space-y-1">
-        <Icon name="ShieldCheck" size={22} className="text-muted-foreground mx-auto opacity-50" />
-        <p className="text-sm font-medium text-muted-foreground">Других активных сессий нет</p>
-        <p className="text-xs text-muted-foreground">Ваш аккаунт открыт только на этом устройстве</p>
-      </div>
-
-      <div className="bg-card rounded-2xl border border-border overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-border">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Информация об устройстве</p>
-        </div>
-        {deviceInfo.map((row, i) => (
-          <div key={i} className="flex items-center justify-between px-4 py-2.5 border-b border-border last:border-0">
-            <span className="text-xs text-muted-foreground">{row.label}</span>
-            <span className="text-xs font-medium text-right max-w-[60%] truncate">{row.value}</span>
-          </div>
-        ))}
-      </div>
-
-      {confirmLogout ? (
-        <div className="p-3.5 bg-destructive/10 rounded-2xl border border-destructive/20 space-y-3">
-          <p className="text-sm text-center font-medium">Выйти из аккаунта на этом устройстве?</p>
-          <div className="flex gap-2">
-            <button onClick={() => setConfirmLogout(false)}
-              className="flex-1 py-2.5 rounded-xl border border-border text-sm hover:bg-muted transition-colors">Отмена</button>
-            <button onClick={onLogout}
-              className="flex-1 py-2.5 rounded-xl bg-destructive text-white text-sm font-medium hover:bg-destructive/90 transition-colors">Выйти</button>
-          </div>
-        </div>
-      ) : (
-        <button onClick={() => setConfirmLogout(true)}
-          className="w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-colors flex items-center justify-center gap-2">
-          <Icon name="LogOut" size={15} />Завершить сессию (выйти из аккаунта)
-        </button>
-      )}
-    </div>
-  );
-}
-
 // ─── Settings Screen ──────────────────────────────────────────────────────────
 export function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarUpload, avatarUploading, avatarInputRef, onUpdateProfile }: {
   user: User; settings: AppSettings;
@@ -1312,6 +1135,11 @@ export function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarU
     { id: "devices", icon: "Monitor", label: "Устройства" },
     { id: "language", icon: "Globe", label: "Язык" },
   ] as const;
+
+  const devices: DeviceInfo[] = [
+    { name: `${detectOS()} · ${detectBrowser()}`, os: detectOS(), browser: detectBrowser(), current: true },
+    { name: "iPhone 15 · Safari", os: "iOS", browser: "Safari", current: false },
+  ];
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
@@ -1505,46 +1333,44 @@ export function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarU
 
         {/* NOTIFICATIONS */}
         {tab === "notifications" && (
-          <div className="space-y-2.5 animate-fade-in">
+          <div className="space-y-2 animate-fade-in">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Уведомления</p>
+
+            {/* Browser permission banner */}
             {"Notification" in window && Notification.permission === "default" && (
               <div className="flex items-center gap-3 p-3.5 bg-primary/10 rounded-2xl border border-primary/20">
                 <Icon name="Bell" size={18} className="text-primary shrink-0" />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-primary">Разрешите уведомления браузера</p>
-                  <p className="text-xs text-muted-foreground">Для показа уведомлений о новых сообщениях</p>
+                  <p className="text-sm font-medium text-primary">Разрешите уведомления</p>
+                  <p className="text-xs text-muted-foreground">Чтобы получать уведомления о новых сообщениях</p>
                 </div>
-                <button onClick={() => Notification.requestPermission().then(() => set({ notifications: true }))}
-                  className="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-medium shrink-0 hover:bg-primary/90 transition-colors">
+                <button onClick={() => Notification.requestPermission().then(() => { set({ notifications: true }); })}
+                  className="px-3 py-1.5 rounded-xl bg-primary text-white text-xs font-medium shrink-0">
                   Разрешить
                 </button>
               </div>
             )}
             {"Notification" in window && Notification.permission === "granted" && (
               <div className="flex items-center gap-2 p-3 bg-green-500/10 rounded-2xl">
-                <Icon name="CheckCircle" size={14} className="text-green-500 shrink-0" />
-                <p className="text-xs text-green-700 dark:text-green-400 font-medium">Браузерные уведомления разрешены</p>
+                <Icon name="CheckCircle" size={14} className="text-green-500" />
+                <p className="text-xs text-green-600 font-medium">Уведомления разрешены браузером</p>
               </div>
             )}
             {"Notification" in window && Notification.permission === "denied" && (
               <div className="flex items-center gap-2 p-3 bg-destructive/10 rounded-2xl">
-                <Icon name="XCircle" size={14} className="text-destructive shrink-0" />
-                <div>
-                  <p className="text-xs text-destructive font-medium">Уведомления заблокированы</p>
-                  <p className="text-xs text-muted-foreground">Разрешите в настройках сайта (замок в адресной строке)</p>
-                </div>
+                <Icon name="XCircle" size={14} className="text-destructive" />
+                <p className="text-xs text-destructive">Уведомления заблокированы. Разрешите в настройках браузера.</p>
               </div>
             )}
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Типы уведомлений</p>
-            {([
-              { key: "notifications" as const, label: "Push-уведомления", desc: "Показывать уведомления в браузере", icon: "Bell" },
-              { key: "notifSound" as const, label: "Звуковые сигналы", desc: "Воспроизводить звук при сообщении", icon: "Volume2" },
-              { key: "notifPreview" as const, label: "Предпросмотр текста", desc: "Показывать текст в уведомлении", icon: "Eye" },
-              { key: "notifCalls" as const, label: "Звонки", desc: "Уведомлять о входящих звонках", icon: "Phone" },
-              { key: "notifChannels" as const, label: "Каналы", desc: "Новые посты в подписках", icon: "Rss" },
-            ] as { key: keyof AppSettings; label: string; desc: string; icon: string }[]).map(item => (
-              <div key={String(item.key)} className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
+
+            {[
+              { key: "notifications", label: "Push-уведомления", desc: "О новых сообщениях и звонках", icon: "Bell" },
+              { key: "notifSound", label: "Звук", desc: "Звуковые сигналы при сообщениях", icon: "Volume2" },
+              { key: "notifPreview", label: "Предпросмотр текста", desc: "Показывать содержимое в уведомлении", icon: "Eye" },
+            ].map(item => (
+              <div key={item.key} className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
                 <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center">
                     <Icon name={item.icon} size={16} className="text-muted-foreground" />
                   </div>
                   <div>
@@ -1553,109 +1379,112 @@ export function SettingsScreen({ user, settings, onSettings, onLogout, onAvatarU
                   </div>
                 </div>
                 <button onClick={() => {
-                  const newVal = !settings[item.key];
+                  const newVal = !settings[item.key as keyof AppSettings];
                   if (item.key === "notifications" && newVal && "Notification" in window && Notification.permission === "default") {
                     Notification.requestPermission();
                   }
                   set({ [item.key]: newVal } as Partial<AppSettings>);
                 }}
-                  className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${settings[item.key] ? "bg-primary" : "bg-muted-foreground/30"}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${settings[item.key] ? "left-[calc(100%-22px)]" : "left-0.5"}`} />
+                  className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${settings[item.key as keyof AppSettings] ? "bg-primary" : "bg-muted-foreground/30"}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${settings[item.key as keyof AppSettings] ? "left-[calc(100%-22px)]" : "left-0.5"}`} />
                 </button>
               </div>
             ))}
-            {settings.notifSound && (
-              <button onClick={() => {
-                try {
-                  const ctx = new AudioContext();
-                  const osc = ctx.createOscillator();
-                  const gain = ctx.createGain();
-                  osc.connect(gain); gain.connect(ctx.destination);
-                  osc.frequency.setValueAtTime(880, ctx.currentTime);
-                  osc.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
-                  gain.gain.setValueAtTime(0.3, ctx.currentTime);
-                  gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-                  osc.start(); osc.stop(ctx.currentTime + 0.3);
-                } catch { /* ignore */ }
-              }} className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-muted hover:bg-muted/80 text-sm text-muted-foreground transition-colors">
-                <Icon name="Volume2" size={14} />Тест звука уведомления
-              </button>
-            )}
-            <div className="p-3.5 bg-muted/50 rounded-2xl">
-              <p className="text-xs text-muted-foreground">Настройки уведомлений отдельных чатов доступны в самом чате.</p>
+            <div className="mt-2 p-3.5 bg-muted/50 rounded-2xl">
+              <p className="text-xs text-muted-foreground">Уведомления об отдельных чатах можно отключить в самом чате.</p>
             </div>
           </div>
         )}
 
         {/* PRIVACY */}
         {tab === "privacy" && (
-          <div className="space-y-2.5 animate-fade-in">
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Видимость данных</p>
-            {([
-              { key: "privacyLastSeen" as const, label: "Время последнего визита", icon: "Clock" },
-              { key: "privacyAvatar" as const, label: "Фото профиля", icon: "UserCircle" },
-              { key: "privacyForwards" as const, label: "Пересылка сообщений", icon: "Forward" },
-            ] as { key: "privacyLastSeen" | "privacyAvatar" | "privacyForwards"; label: string; icon: string }[]).map(item => {
-              const val = settings[item.key] as "all" | "contacts" | "nobody";
-              return (
-                <div key={item.key} className="p-3.5 bg-card rounded-2xl border border-border space-y-2.5">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                      <Icon name={item.icon} size={15} className="text-muted-foreground" />
-                    </div>
-                    <span className="text-sm font-medium">{item.label}</span>
-                  </div>
-                  <div className="flex gap-1.5">
-                    {([{ v: "all", label: "Все" }, { v: "contacts", label: "Контакты" }, { v: "nobody", label: "Никто" }] as { v: "all" | "contacts" | "nobody"; label: string }[]).map(o => (
-                      <button key={o.v} onClick={() => set({ [item.key]: o.v } as Partial<AppSettings>)}
-                        className={`flex-1 py-1.5 rounded-xl text-xs font-medium transition-all
-                          ${val === o.v ? "bg-primary text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>
-                        {o.label}
-                      </button>
-                    ))}
-                  </div>
+          <div className="space-y-2 animate-fade-in">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Конфиденциальность</p>
+            {[
+              { label: "Фото профиля", value: "Все" },
+              { label: "Статус онлайн", value: "Все" },
+              { label: "Прочитано", value: "Все" },
+              { label: "Переадресация", value: "Контакты" },
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between px-4 py-3.5 bg-card rounded-2xl border border-border">
+                <span className="text-sm">{item.label}</span>
+                <div className="flex items-center gap-1.5 text-primary text-sm font-medium">
+                  <span>{item.value}</span>
+                  <Icon name="ChevronRight" size={14} />
                 </div>
-              );
-            })}
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider pt-1">Чаты</p>
-            {([
-              { key: "privacyReadReceipts" as const, label: "Отметки о прочтении", desc: "Показывать галочки «прочитано»", icon: "CheckCheck" },
-              { key: "privacyTyping" as const, label: "Статус «печатает»", desc: "Показывать другим, что вы пишете", icon: "MessageSquare" },
-            ] as { key: keyof AppSettings; label: string; desc: string; icon: string }[]).map(item => (
-              <div key={String(item.key)} className="flex items-center justify-between p-3.5 bg-card rounded-2xl border border-border">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-                    <Icon name={item.icon} size={16} className="text-muted-foreground" />
-                  </div>
-                  <div>
-                    <div className="text-sm font-medium">{item.label}</div>
-                    <div className="text-xs text-muted-foreground">{item.desc}</div>
-                  </div>
-                </div>
-                <button onClick={() => set({ [item.key]: !settings[item.key] } as Partial<AppSettings>)}
-                  className={`w-11 h-6 rounded-full transition-all relative shrink-0 ${settings[item.key] ? "bg-primary" : "bg-muted-foreground/30"}`}>
-                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 shadow-sm transition-all ${settings[item.key] ? "left-[calc(100%-22px)]" : "left-0.5"}`} />
-                </button>
               </div>
             ))}
-            <div className="p-3.5 bg-green-500/10 rounded-2xl border border-green-200 dark:border-green-900/50">
-              <div className="flex items-center gap-2.5 mb-1.5">
-                <Icon name="Shield" size={15} className="text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-400">Сквозное шифрование</span>
+            <div className="p-3.5 bg-card rounded-2xl border border-border">
+              <div className="flex items-center gap-3 mb-2">
+                <Icon name="Shield" size={16} className="text-green-500" />
+                <span className="text-sm font-medium">Сквозное шифрование</span>
               </div>
-              <p className="text-xs text-muted-foreground">Все сообщения защищены AES-512 E2E. Даже серверы WorChat не могут прочитать вашу переписку.</p>
+              <p className="text-xs text-muted-foreground">Все сообщения защищены AES-512. Никто, включая WorChat, не может прочитать ваши переписки.</p>
+            </div>
+            <div className="p-3.5 bg-card rounded-2xl border border-border">
+              <p className="text-sm font-medium mb-1.5">Блокировки</p>
+              <p className="text-xs text-muted-foreground">Нет заблокированных пользователей</p>
             </div>
           </div>
         )}
 
         {/* STORAGE */}
         {tab === "storage" && (
-          <StorageTab settings={settings} set={set} />
+          <div className="space-y-3 animate-fade-in">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Данные и хранилище</p>
+            <div className="bg-card rounded-2xl border border-border p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-medium">Использование</span>
+                <span className="text-xs text-muted-foreground">128 МБ из 1 ГБ</span>
+              </div>
+              <div className="h-2 bg-muted rounded-full overflow-hidden">
+                <div className="h-full bg-primary rounded-full" style={{ width: "12%" }} />
+              </div>
+            </div>
+            {[
+              { label: "Фотографии", size: "42 МБ", icon: "Image" },
+              { label: "Видео", size: "68 МБ", icon: "Video" },
+              { label: "Файлы", size: "14 МБ", icon: "FileText" },
+              { label: "Аудио", size: "4 МБ", icon: "Music" },
+            ].map(item => (
+              <div key={item.label} className="flex items-center gap-3 px-4 py-3 bg-card rounded-2xl border border-border">
+                <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Icon name={item.icon} size={16} className="text-muted-foreground" />
+                </div>
+                <span className="flex-1 text-sm">{item.label}</span>
+                <span className="text-sm text-muted-foreground">{item.size}</span>
+              </div>
+            ))}
+            <button className="w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-colors flex items-center justify-center gap-2">
+              <Icon name="Trash2" size={16} />Очистить кэш
+            </button>
+          </div>
         )}
 
         {/* DEVICES */}
         {tab === "devices" && (
-          <DevicesTab onLogout={onLogout} />
+          <div className="space-y-3 animate-fade-in">
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Активные сессии</p>
+            {devices.map((d, i) => (
+              <div key={i} className="flex items-center gap-3 p-3.5 bg-card rounded-2xl border border-border">
+                <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center shrink-0">
+                  <Icon name={d.os === "iOS" || d.os === "Android" ? "Smartphone" : "Monitor"} size={20} className="text-muted-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">{d.name}</div>
+                  <div className="text-xs text-muted-foreground">{d.os} · {d.browser}</div>
+                </div>
+                {d.current ? (
+                  <span className="text-[10px] font-semibold text-green-600 bg-green-100 px-2 py-0.5 rounded-full shrink-0">Текущий</span>
+                ) : (
+                  <button className="text-xs text-destructive hover:underline shrink-0">Выйти</button>
+                )}
+              </div>
+            ))}
+            <button className="w-full py-3 rounded-2xl border border-destructive/30 text-destructive text-sm font-medium hover:bg-destructive/5 transition-colors">
+              Завершить все другие сессии
+            </button>
+          </div>
         )}
 
         {/* LANGUAGE */}
